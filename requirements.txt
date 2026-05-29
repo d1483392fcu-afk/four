@@ -1,4 +1,4 @@
 Flask
 python-dotenv
 flask-sqlalchemy
-pyngrok
+gunicorn
