@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}報表 - EcoLedger{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="fw-bold">碳排放報表</h2>
+        <p class="text-muted">根據您的行為記錄，呈現各分類碳排放統計。</p>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">分類碳排統計</h5>
+        {% if category_data %}
+            <ul class="list-group">
+                {% for cat, amount in category_data.items() %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>{{ cat }}</span>
+                        <span class="badge bg-primary rounded-pill">{{ '%.2f'|format(amount) }} kg</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="text-center text-muted py-4">
+                尚無行為紀錄可供分析。
+                <div class="mt-3">
+                    <a href="{{ url_for('ledger.new_record') }}" class="btn btn-outline-success btn-sm">新增第一筆紀錄</a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<a href="{{ url_for('report.target') }}" class="btn btn-outline-primary">設定減碳目標</a>
+{% endblock %}

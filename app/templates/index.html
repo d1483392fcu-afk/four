@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}儀表板 - EcoLedger{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-muted mb-3">本月累積碳排</h5>
+                <h2 class="display-4 text-danger fw-bold">{{ '%.2f'|format(total_carbon) }} <span class="fs-5 text-muted">kg CO₂e</span></h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-muted mb-3">每月減碳目標</h5>
+                <h2 class="display-4 text-success fw-bold">{{ '%.2f'|format(g.user['target_carbon_emission'] or 0) }} <span class="fs-5 text-muted">kg CO₂e</span></h2>
+                <a href="{{ url_for('report.target') }}" class="btn btn-outline-success btn-sm mt-3">設定目標</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">近期行為紀錄</h3>
+    <a href="{{ url_for('ledger.new_record') }}" class="btn btn-success">新增紀錄</a>
+</div>
+
+{% if records %}
+    <div class="list-group">
+        {% for record in records %}
+            <div class="list-group-item mb-3 shadow-sm">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-1">{{ record['action_name'] }}</h5>
+                        <small class="text-muted">{{ record['category'] }} · {{ record['created_at'][:10] }}</small>
+                    </div>
+                    <span class="badge bg-primary fs-6">{{ '%.2f'|format(record['carbon_amount']) }} kg</span>
+                </div>
+                <p class="mb-2 text-muted">參數值：{{ record['parameter_value'] }}</p>
+                {% if record['suggestion'] %}
+                    <div class="alert alert-info py-2 mb-2">
+                        <strong>💡 建議：</strong> {{ record['suggestion'] }}
+                    </div>
+                {% endif %}
+                <form action="{{ url_for('ledger.delete_record', record_id=record['id']) }}" method="POST" class="text-end">
+                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('確定要刪除這筆紀錄嗎？');">刪除</button>
+                </form>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card shadow-sm text-center py-5">
+        <div class="card-body">
+            <h4 class="mb-3">目前尚無紀錄</h4>
+            <p class="text-muted">立即新增第一筆碳排放紀錄，開始追蹤你的減碳進度。</p>
+            <a href="{{ url_for('ledger.new_record') }}" class="btn btn-success">開始記錄</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

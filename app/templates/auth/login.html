@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}登入 - EcoLedger{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">登入帳本</h3>
+                <form action="{{ url_for('auth.login') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">帳號</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密碼</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">登入</button>
+                    </div>
+                </form>
+                <div class="text-center mt-3">
+                    <small class="text-muted">還沒有帳號？ <a href="{{ url_for('auth.register') }}">立即註冊</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
