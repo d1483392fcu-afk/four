@@ -1,22 +1,38 @@
 import os
 import sqlite3
 import logging
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'instance', 'database.db')
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+IS_POSTGRES = DATABASE_URL is not None
 
 
 def get_db_connection():
     """
-    建立並回傳 SQLite 資料庫連線。
-    預期資料庫路徑為 instance/database.db。
+    建立並回傳資料庫連線。
+    在 Railway 環境中使用 PostgreSQL，本機開發環境使用 SQLite。
     """
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        return conn
-    except sqlite3.Error as e:
+        if IS_POSTGRES:
+            conn = psycopg2.connect(DATABASE_URL)
+            return conn
+        else:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            return conn
+    except Exception as e:
         logging.error(f"資料庫連線錯誤: {e}")
         return None
+
+
+def dict_from_row(row):
+    """Convert database row to dictionary."""
+    if isinstance(row, dict):
+        return row
+    return dict(row)
 
 
 class UserModel:
@@ -29,15 +45,25 @@ class UserModel:
             return None
 
         try:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO users (username, password_hash, target_carbon_emission) VALUES (?, ?, ?)",
-                (data['username'], data['password_hash'], data.get('target_carbon_emission', 0))
-            )
+            if IS_POSTGRES:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO users (username, password_hash, target_carbon_emission) VALUES (%s, %s, %s) RETURNING id",
+                    (data['username'], data['password_hash'], data.get('target_carbon_emission', 0))
+                )
+                user_id = cursor.fetchone()[0]
+            else:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO users (username, password_hash, target_carbon_emission) VALUES (?, ?, ?)",
+                    (data['username'], data['password_hash'], data.get('target_carbon_emission', 0))
+                )
+                user_id = cursor.lastrowid
             conn.commit()
-            return cursor.lastrowid
-        except sqlite3.Error as e:
+            return user_id
+        except Exception as e:
             logging.error(f"UserModel.create 錯誤: {e}")
+            conn.rollback()
             return None
         finally:
             conn.close()
@@ -49,8 +75,13 @@ class UserModel:
             return []
 
         try:
-            return conn.execute('SELECT * FROM users').fetchall()
-        except sqlite3.Error as e:
+            if IS_POSTGRES:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                cursor.execute('SELECT * FROM users')
+                return cursor.fetchall()
+            else:
+                return conn.execute('SELECT * FROM users').fetchall()
+        except Exception as e:
             logging.error(f"UserModel.get_all 錯誤: {e}")
             return []
         finally:
@@ -63,8 +94,15 @@ class UserModel:
             return None
 
         try:
-            return conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
-        except sqlite3.Error as e:
+            if IS_POSTGRES:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))
+                result = cursor.fetchone()
+                return dict(result) if result else None
+            else:
+                result = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+                return dict_from_row(result) if result else None
+        except Exception as e:
             logging.error(f"UserModel.get_by_id 錯誤: {e}")
             return None
         finally:
@@ -77,8 +115,15 @@ class UserModel:
             return None
 
         try:
-            return conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-        except sqlite3.Error as e:
+            if IS_POSTGRES:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+                result = cursor.fetchone()
+                return dict(result) if result else None
+            else:
+                result = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+                return dict_from_row(result) if result else None
+        except Exception as e:
             logging.error(f"UserModel.get_by_username 錯誤: {e}")
             return None
         finally:
@@ -91,14 +136,22 @@ class UserModel:
             return False
 
         try:
-            columns = ', '.join([f"{key} = ?" for key in data.keys()])
-            values = list(data.values())
-            values.append(user_id)
-            conn.execute(f"UPDATE users SET {columns} WHERE id = ?", tuple(values))
+            if IS_POSTGRES:
+                cursor = conn.cursor()
+                columns = ', '.join([f"{key} = %s" for key in data.keys()])
+                values = list(data.values())
+                values.append(user_id)
+                cursor.execute(f"UPDATE users SET {columns} WHERE id = %s", tuple(values))
+            else:
+                columns = ', '.join([f"{key} = ?" for key in data.keys()])
+                values = list(data.values())
+                values.append(user_id)
+                conn.execute(f"UPDATE users SET {columns} WHERE id = ?", tuple(values))
             conn.commit()
             return True
-        except sqlite3.Error as e:
+        except Exception as e:
             logging.error(f"UserModel.update 錯誤: {e}")
+            conn.rollback()
             return False
         finally:
             conn.close()
@@ -110,11 +163,16 @@ class UserModel:
             return False
 
         try:
-            conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            if IS_POSTGRES:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM users WHERE id = %s', (user_id,))
+            else:
+                conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
             conn.commit()
             return True
-        except sqlite3.Error as e:
+        except Exception as e:
             logging.error(f"UserModel.delete 錯誤: {e}")
+            conn.rollback()
             return False
         finally:
             conn.close()
